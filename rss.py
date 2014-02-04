@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-import feedparser, os, time, re, signal, sys, string
+import feedparser, os, time, re, signal, sys, string, pickle
 import subprocess as sub
+import pybrain as pb
 
-# For interruption handling
+# For interruption handling and saving state
 def signal_handler(signal, frame):
         print "Saving progress..."
-        
+        with open(savefile, 'wb') as output:
+            for feed in feeds.values():
+                for item in feed.items.values():
+                    pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
+                          
         print "Exiting"
         sys.exit(0)
 
@@ -16,9 +21,21 @@ feeds = {}
 authors = {}
 categories = {}
 
+try:
+    feedfile = sys.argv[1]
+except:
+    print "No argument for feed file provided, defaulting to rss.txt"
+    feedfile = "rss.txt"
+
+try:
+    savefile = sys.argv[2]
+except:
+    print "No argument for save file provided, defaulting to save.feeds"
+    savefile = "save.feeds"
+
 # defines wich feature is used to send notifications
 # growl should be implemented
-notify_send = True
+notify_send = False
 
 #class Category:
         
@@ -155,6 +172,7 @@ def sendNotification(text, length=5):
     
     if notify_send:
         notifySend(filtered, length)
+    print filtered
 
 # Standard linux notification, to be swiched out for Growl
 def notifySend(text, length):
@@ -162,7 +180,7 @@ def notifySend(text, length):
 
 # Run loop
 def run(interval=10):
-    readFeedsFromFile("rss.txt")
+    readFeedsFromFile(feedfile)
     #while True:
         #time.sleep(interval)
         
@@ -178,4 +196,9 @@ def run(interval=10):
         #give valid notification
 
 
+#def main():
+
+
 run()
+
+
