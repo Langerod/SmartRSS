@@ -5,14 +5,11 @@ import pybrain as pb
 
 # For interruption handling and saving state
 def signal_handler(signal, frame):
-        print "Saving progress..."
-        with open(savefile, 'wb') as output:
-            for feed in feeds.values():
-                for item in feed.items.values():
-                    pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
-                          
-        print "Exiting"
-        sys.exit(0)
+    print "Saving progress..."
+    save(savefile)
+    
+    print "Exiting"
+    sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -24,21 +21,21 @@ categories = {}
 try:
     feedfile = sys.argv[1]
 except:
-    print "No argument for feed file provided, defaulting to rss.txt"
     feedfile = "rss.txt"
-
+    print "No argument for feed file provided, defaulting to %s" % feedfile
+    
 try:
     savefile = sys.argv[2]
 except:
-    print "No argument for save file provided, defaulting to save.feeds"
-    savefile = "save.feeds"
-
+    savefile = "save.itm"
+    print "No argument for save file provided, defaulting to %s" % savefile
+    
 # defines wich feature is used to send notifications
 # growl should be implemented
 notify_send = False
 
 #class Category:
-        
+
 # Author, wich contains feed entries
 class Author:
     def __init__(self, name, score=0):
@@ -61,7 +58,7 @@ class Author:
     def addItems(self,items):
         added = False
         for item in items:
-            if addItems(item):
+            if addItem(item):
                 added = True
         return added
 
@@ -88,11 +85,11 @@ class Feed:
             item = Item(i)
             if item.title not in self.items.keys():
                 self.items[item.title] = item
-                                               
+                
     def __getitem__(self, n):
         if (n - 1) > len(self.items):
             return None
-        
+            
         return self.items[n]
         
     def __len__(self):
@@ -135,7 +132,7 @@ class Item:
                         self.refers[x] += 1
                     else:
                         self.refers[x] = 1
-        
+                        
     def __str__(self):
         return "%s - %s" % (self.author.name, self.title)
         
@@ -158,11 +155,11 @@ def addFeed(url):
     except TypeError:
         print "Error creating feed"
         return False
-    
+        
     if feed.title not in feeds:
         feeds[feed.title] = feed
         return True
-    
+        
     return False
 
 # Send notification to the user
@@ -172,7 +169,8 @@ def sendNotification(text, length=5):
     
     if notify_send:
         notifySend(filtered, length)
-    print filtered
+    else:
+        print filtered
 
 # Standard linux notification, to be swiched out for Growl
 def notifySend(text, length):
@@ -180,25 +178,56 @@ def notifySend(text, length):
 
 # Run loop
 def run(interval=10):
-    readFeedsFromFile(feedfile)
     #while True:
-        #time.sleep(interval)
-        
-    for feed in feeds.values():
-        for item in feed.items.values():
+    #time.sleep(interval)
+    
+    for author in authors.values():
+        for item in author.items.values():
+            sendNotification(item,1)
             for x in item.refers:
                 print "%s -> %s" % (item.author.name, x)
-            sendNotification(item,1)
-            time.sleep(1)
+            time.sleep(0.1)
+                
+            #poll data
+            #check if unread/new
+            #give valid notification
+
+def save(savefile):
+    with open(savefile, 'wb') as output:
+        for feed in feeds.values():
+            for item in feed.items.values():
+                pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
+        for author in authors.values():
+            for item in author.items.values():
+                pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
         
-        #poll data
-        #check if unread/new
-        #give valid notification
 
 
-#def main():
+def read(itemfile):
+    try:
+        with open(itemfile, 'rb') as input:
+            while True:
+                item = pickle.load(input)
+                if item == None:
+                    break
+                    
+                if item.author.name not in authors:
+                    authors[item.author.name] = item.author
+                    
+                authors[item.author.name].addItem(item)
+                
+    except:
+        "Could not load items from file"
+        return False
+        
+    return True
 
+def main():
+    #readFeedsFromFile(feedfile)
+    read(savefile)
+    run()
+    save(savefile)
+    
 
-run()
-
-
+if __name__ == '__main__':
+    main()
